@@ -1,0 +1,164 @@
+================Pre-processing the data=======================
+
+Since the data is in CSV format and as we can see in file some fields have null values, so first we need to filter those kind of data before we feed the data for processing.
+
+
+Step 1:
+
+First register the piggybank jar.
+
+REGISTER '/home/acadgild/piggybank.jar';
+
+
+Since the data is in .csv file. Load the file into pig relation using CSVExcelStorage( ) function
+
+data = LOAD '/home/acadgild/Desktop/Project/Crimes_-_2001_to_present.csv' USING org.apache.pig.piggybank.storage.CSVExcelStorage(',','NO_MULTILINE','UNIX', 'SKIP_INPUT_HEADER');
+
+
+-----------------------
+
+
+Step 2:
+
+Assign the schema to loaded file.
+year
+data_with_schema = FOREACH data GENERATE (int)$0 as id, (chararray)$1 as Case_Number, (chararray)$2 as Date, $3 as Block, $4 as IUCR, $5 as Primary_Type, $6 as Description, $7 as Location_Description, $8 as Arrest, $9 as Domestic, $10 as Beat, $11 as District, $12 as Ward, $13 as Community_Area, $14 as FBICode, $15 as X_Coordinate, $16 as Y_Coordinate, $17 as Year, $18 as Updated_On, $18 as Latitude, $19 as Longitude, $20 as Location;
+
+
+------------------------
+
+
+
+Step 3: Filtering the null values from above relation.
+
+data_filtered_null = FILTER data_with_schema BY ($0 IS NOT NULL) AND NOT ($1 MATCHES '') AND NOT ($2 MATCHES ' ') AND NOT ($3 MATCHES '') AND NOT ($4 MATCHES '')  AND NOT ($5 MATCHES '')  AND NOT ($7 MATCHES '');
+
+
+
+-------------------------
+
+
+===================Data Processing==================
+
+Problem Stat - 1 : To calculate number of cases investigated under each FBI code.
+
+	1. data_filtered_null = FILTER data_with_schema BY ($0 IS NOT NULL) AND NOT ($1 MATCHES '') AND NOT ($2 MATCHES ' ') AND NOT ($3 MATCHES '') AND NOT ($4 MATCHES '')  AND NOT ($5 MATCHES '')  AND NOT ($7 MATCHES '');
+
+
+	2. Group the data by FBI code.
+
+GROUP_BY_FBICode = GROUP data_filtered_null BY FBICode;
+
+
+	3. To caluculate no of cases investigated under each FBI code, we need to use aggregate function - COUNT.
+
+
+cases_investigated_under_each_FBIcode = FOREACH GROUP_BY_FBICode GENERATE group, COUNT(data_filtered_null.FBICode);
+
+
+	4. Now lets sort the result data by descending order.
+
+sort_by_count = ORDER cases_investigated_under_each_FBIcode by cnt desc;
+
+
+TO get result:
+
+dump sort_by_count;
+
+
+
+=====================================================
+
+Problem Stat  -  2 : Number of cases investigated under each FBI code 32.
+
+
+Step 1 : data_filtered_null = FILTER data_with_schema BY ($0 IS NOT NULL) AND NOT ($1 MATCHES '') AND NOT ($2 MATCHES ' ') AND NOT ($3 MATCHES '') AND NOT ($4 MATCHES '')  AND NOT ($5 MATCHES '')  AND NOT ($7 MATCHES '');
+
+
+Step 2 :  Filter the data with FBICode 32.
+
+
+District_32 = FILTER data_filtered_null by $13=='32';
+
+
+
+Step 3 : To find total no of cases investigated under District code = 32, first we need to do group all and then use aggregate function COUNT(*).
+
+
+grp_all = GROUP District_32 all;
+
+
+Step 4 : Use aggregate function - count to get result.
+
+total_cases_under_32 = FOREACH grp_all GENERATE COUNT(District_32);
+
+
+ DUMP total_cases_under_32;
+
+
+(7983)
+
+=========================================================
+
+
+Problem Stat - 3 : No of arrests in theft district wise.
+
+Step 1 :  data_filtered_null = FILTER data_with_schema BY ($0 IS NOT NULL) AND NOT ($1 MATCHES '') AND NOT ($2 MATCHES ' ') AND NOT ($3 MATCHES '') AND NOT ($4 MATCHES '')  AND NOT ($5 MATCHES '')  AND NOT ($7 MATCHES '');
+
+
+Step 2 : Filtering Record which contains only cases which were arrested in Theft
+
+arrested_in_theft = FILTER data_filtered_null by Arrest=='TRUE' AND Primary_Type=='THEFT';
+
+
+Step 3 : Now group the data by District wise.
+
+group_by_district = GROUP arrested_in_theft BY $11;
+
+
+Step 4 : Finding out the how many cases registered in theft for each district. USe aggregate function - COUNT( )
+
+cases_registered_theft = FOREACH group_by_district GENERATE group, COUNT(arrested_in_theft.$11);
+
+
+Step 5 : Sort the result in decreasing order.
+
+Final_Result = ORDER cases_registered_theft BY cnt desc;
+
+
+
+=======================================================
+
+
+
+Problem Stat - 4 :  
+
+Total no of arrrests done between 2014-2015
+
+Step 1 : data_filtered_null = FILTER data_with_schema BY ($0 IS NOT NULL) AND NOT ($1 MATCHES '') AND NOT ($2 MATCHES ' ') AND NOT ($3 MATCHES '') AND NOT ($4 MATCHES '')  AND NOT ($5 MATCHES '')  AND NOT ($7 MATCHES '');
+
+
+Step 2 : Filtering Record which contains only cases which were arrested
+
+
+arrested = FILTER data_filtered_null by Arrest=='TRUE';
+
+
+Step 3 : Filter the cases which were recorded between the year 2014-2015.
+
+year_2014_2015 = FOREACH arrested GENERATE $17>=2014 AND $17<=2015;
+
+
+Step 4 : Now to get final result we need to use COUNT(*). But to use this aggregate function first we need to Group above relation.
+
+grp = GROUP year_2014_2015 all;
+
+
+Step 5  :  Total no of arrrests done between 2014-2015
+
+Arrests_between_2014_2015 = FOREACH grp GENERATE COUNT(year_2014_2015);
+
+(78329)
+
+
+====================================================================================================
